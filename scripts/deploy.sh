@@ -183,8 +183,7 @@ start_backend() {
 start_backend catalog catalog \
     'node -e "fetch(\"http://127.0.0.1:3000/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"'
 
-start_backend inventory inventory \
-    '/inventory-service -healthcheck'
+start_backend inventory inventory ""
 
 start_backend orders orders \
     'wget -q -O /dev/null http://127.0.0.1:8082/health || exit 1'
