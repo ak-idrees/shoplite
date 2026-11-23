@@ -25,6 +25,15 @@ cd "$PROJECT_DIR"
 
 FRONTEND_PORT="${FRONTEND_PORT:-80}"
 
+# Load SERVER_NAME from .env
+if [ -f .env ]; then
+    set -a
+    source .env
+    set +a
+fi
+
+SERVER_NAME="${SERVER_NAME:-_}"
+
 echo "=================================="
 echo "       SHOPLITE DEPLOYMENT"
 echo "=================================="
@@ -72,8 +81,6 @@ docker pull "$REGISTRY/shoplite/inventory:$IMAGE_TAG"
 docker pull "$REGISTRY/shoplite/orders:$IMAGE_TAG"
 
 echo "All images pulled successfully."
-
-# No application containers have been stopped yet.
 
 # =========================
 # PREPARE NETWORKS AND VOLUME
@@ -162,13 +169,19 @@ start_backend() {
 
     docker rm -f "$NAME" 2>/dev/null || true
 
+    local HEALTH_ARGS=()
+
+    if [ -n "$HEALTH_COMMAND" ]; then
+        HEALTH_ARGS=(--health-cmd="$HEALTH_COMMAND")
+    fi
+
     docker run -d \
         --name "$NAME" \
         --network backend-net \
         --network-alias "$NAME" \
         --env-file .env \
         --restart unless-stopped \
-        --health-cmd="$HEALTH_COMMAND" \
+        "${HEALTH_ARGS[@]}" \
         --health-interval=10s \
         --health-timeout=5s \
         --health-retries=5 \
@@ -200,13 +213,10 @@ docker run -d \
     --name frontend \
     --network frontend-net \
     --env-file .env \
-    -e SERVER_NAME="${SERVER_NAME:-_}" \
+    -e SERVER_NAME="$SERVER_NAME" \
     -p "$FRONTEND_PORT:80" \
     --restart unless-stopped \
-        if curl -fsS \
-        -H "Host: ${SERVER_NAME}" \
-        "http://127.0.0.1:${FRONTEND_PORT}/api/catalog/health" \
-        >/dev/null; then
+    --health-cmd="wget -q --header='Host: $SERVER_NAME' -O /dev/null http://127.0.0.1/api/catalog/health || exit 1" \
     --health-interval=10s \
     --health-timeout=5s \
     --health-retries=5 \
@@ -225,9 +235,10 @@ HEALTHY=false
 
 for i in $(seq 1 60); do
     if curl -fsS \
-     -H "Host: ${SERVER_NAME}" \
-        "http://127.0.0.1:${FRONTEND_PORT}/api/catalog/health"
-        >/dev/null; then
+        -H "Host: $SERVER_NAME" \
+        "http://127.0.0.1:${FRONTEND_PORT}/api/catalog/health" \
+        >/dev/null 2>&1
+    then
         HEALTHY=true
         break
     fi
