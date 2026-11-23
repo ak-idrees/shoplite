@@ -77,7 +77,7 @@ echo "Starting new containers..."
 export TAG
 export FRONTEND_PORT="${FRONTEND_PORT:-80}"
 export SERVER_NAME="${SERVER_NAME:-_}"
-export IMAGE_PREFIX="$ECR_REGISTRY"
+export IMAGE_PREFIX="$ECR_REGISTRY/"
 
 bash "$PROJECT_DIR/scripts/up.sh"
 
