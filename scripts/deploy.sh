@@ -13,7 +13,14 @@ AWS_ACCOUNT_ID="836505524477"
 AWS_REGION="ap-southeast-2"
 REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ -f "$SCRIPT_DIR/db/init.sql" ]; then
+    PROJECT_DIR="$SCRIPT_DIR"
+else
+    PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
+
 cd "$PROJECT_DIR"
 
 FRONTEND_PORT="${FRONTEND_PORT:-80}"
