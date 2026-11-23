@@ -203,7 +203,10 @@ docker run -d \
     -e SERVER_NAME="${SERVER_NAME:-_}" \
     -p "$FRONTEND_PORT:80" \
     --restart unless-stopped \
-    --health-cmd='wget -q -O /dev/null http://127.0.0.1/api/catalog/health || exit 1' \
+        if curl -fsS \
+        -H "Host: ${SERVER_NAME}" \
+        "http://127.0.0.1:${FRONTEND_PORT}/api/catalog/health" \
+        >/dev/null; then
     --health-interval=10s \
     --health-timeout=5s \
     --health-retries=5 \
