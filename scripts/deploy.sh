@@ -222,7 +222,8 @@ HEALTHY=false
 
 for i in $(seq 1 60); do
     if curl -fsS \
-        "http://127.0.0.1:${FRONTEND_PORT}/api/catalog/health" \
+     -H "Host: ${SERVER_NAME}" \
+        "http://127.0.0.1:${FRONTEND_PORT}/api/catalog/health"
         >/dev/null; then
         HEALTHY=true
         break
