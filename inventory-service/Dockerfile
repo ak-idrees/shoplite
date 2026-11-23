@@ -31,3 +31,4 @@ EXPOSE 8081
 USER nonroot:nonroot
 
 ENTRYPOINT ["/inventory-service"]
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 CMD ["/inventory-service", "-healthcheck"]
