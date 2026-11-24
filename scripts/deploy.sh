@@ -53,6 +53,11 @@ for COMMAND in docker aws curl; do
     }
 done
 
+if ! command -v sudo >/dev/null 2>&1; then
+    echo "ERROR: sudo is not installed."
+    exit 1
+fi
+
 if [ ! -f .env ]; then
     echo "ERROR: .env file is missing!"
     exit 1
@@ -69,8 +74,9 @@ fi
 
 echo "Checking SSL certificate..."
 
-if [ ! -f "$CERT_DIR/fullchain.pem" ] || [ ! -f "$CERT_DIR/privkey.pem" ]; then
-    echo "ERROR: SSL certificate or private key is missing."
+if ! sudo -n test -s "$CERT_DIR/fullchain.pem" || \
+   ! sudo -n test -s "$CERT_DIR/privkey.pem"; then
+    echo "ERROR: SSL certificate or private key is missing or inaccessible."
     echo "Expected directory: $CERT_DIR"
     exit 1
 fi
