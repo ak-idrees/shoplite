@@ -24,6 +24,9 @@ fi
 cd "$PROJECT_DIR"
 
 FRONTEND_PORT="${FRONTEND_PORT:-80}"
+HTTPS_PORT="${HTTPS_PORT:-443}"
+
+CERT_DIR="/etc/letsencrypt/live/shoplite-idrees.duckdns.org"
 
 # Load SERVER_NAME from .env
 if [ -f .env ]; then
@@ -32,7 +35,7 @@ if [ -f .env ]; then
     set +a
 fi
 
-SERVER_NAME="${SERVER_NAME:-_}"
+SERVER_NAME="${SERVER_NAME:-shoplite-idrees.duckdns.org}"
 
 echo "=================================="
 echo "       SHOPLITE DEPLOYMENT"
@@ -59,6 +62,20 @@ if [ ! -f db/init.sql ]; then
     echo "ERROR: db/init.sql is missing!"
     exit 1
 fi
+
+# =========================
+# CHECK SSL CERTIFICATE
+# =========================
+
+echo "Checking SSL certificate..."
+
+if [ ! -f "$CERT_DIR/fullchain.pem" ] || [ ! -f "$CERT_DIR/privkey.pem" ]; then
+    echo "ERROR: SSL certificate or private key is missing."
+    echo "Expected directory: $CERT_DIR"
+    exit 1
+fi
+
+echo "SSL certificate files found."
 
 # =========================
 # LOGIN TO ECR
@@ -131,6 +148,7 @@ wait_healthy() {
 
     for i in $(seq 1 30); do
         local STATUS
+
         STATUS="$(docker inspect -f \
             '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' \
             "$CONTAINER")"
@@ -215,8 +233,10 @@ docker run -d \
     --env-file .env \
     -e SERVER_NAME="$SERVER_NAME" \
     -p "$FRONTEND_PORT:80" \
+    -p "$HTTPS_PORT:443" \
+    -v /etc/letsencrypt:/etc/letsencrypt:ro \
     --restart unless-stopped \
-    --health-cmd="wget -q --header='Host: $SERVER_NAME' -O /dev/null http://127.0.0.1/api/catalog/health || exit 1" \
+    --health-cmd="wget -q --no-check-certificate --header='Host: $SERVER_NAME' -O /dev/null https://127.0.0.1/api/catalog/health || exit 1" \
     --health-interval=10s \
     --health-timeout=5s \
     --health-retries=5 \
@@ -229,14 +249,14 @@ wait_healthy frontend
 # FRONTEND API SMOKE TEST
 # =========================
 
-echo "Checking frontend catalog API..."
+echo "Checking frontend catalog API over HTTPS..."
 
 HEALTHY=false
 
 for i in $(seq 1 60); do
-    if curl -fsS \
+    if curl -kfsS \
         -H "Host: $SERVER_NAME" \
-        "http://127.0.0.1:${FRONTEND_PORT}/api/catalog/health" \
+        "https://127.0.0.1:${HTTPS_PORT}/api/catalog/health" \
         >/dev/null 2>&1
     then
         HEALTHY=true
@@ -247,12 +267,12 @@ for i in $(seq 1 60); do
 done
 
 if [ "$HEALTHY" != true ]; then
-    echo "ERROR: Frontend catalog API did not respond within 60 seconds."
+    echo "ERROR: Frontend catalog API did not respond over HTTPS within 60 seconds."
     docker logs --tail 30 frontend
     exit 1
 fi
 
-echo "Frontend catalog API is responding."
+echo "Frontend catalog API is responding over HTTPS."
 
 # =========================
 # REMOVE OLD UNUSED IMAGES
